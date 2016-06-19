@@ -1,4 +1,4 @@
-# dummy-env
+# dialog-env
 First look at creating open AI gym environments, specifically for dialog
 
 # Notes on creating an environment for learning dialog policies:
