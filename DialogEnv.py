@@ -26,8 +26,10 @@ import gym
 from gym import spaces
 from utils import *
 import numpy as np
+import ConfigParser
+from resources.cued import FocusTracker
 
-class DialogEnvSpace(gym.Space):
+class FocusEnvSpace(gym.Space):
     '''
     To be written for creation of a new space.
     -- for dialog - this would be the response action from a simulated user
@@ -41,7 +43,7 @@ class DialogEnvSpace(gym.Space):
         0. belief state is reset
         :return:
         '''
-        pass
+        self.belief_tracker = FocusTracker() # TODO
 
     def contains(self, x):
         """
@@ -51,7 +53,11 @@ class DialogEnvSpace(gym.Space):
         return not True  # TODO
 
     def restart(self):
-        pass
+        self.belief_tracker.restart()
+
+    def next_observation(self, user_act, agent_act):
+        self.belief_tracker.track(user_act, agent_act)
+        return self.belief_tracker.state  # TODO figure out actual name for focus of object
 
 '''
 Want to try and keep this example as minimal as possible so that we can see what gym HAS and REQUIRES in creating
@@ -69,14 +75,23 @@ class DialogEnvInterface(gym.Env):
         # a SIMULATED USER
         # a DialogEnvSpace()  aka belief tracker
         '''
-        self.construct(config=configfile)
+        config = ConfigParser.ConfigParser()
+        try:
+            config.read(configfile)
+        except Exception as inst:
+            exit('Failed to parse file', inst)
+        self.construct(config=config)
 
-    def construct(self, configfile):
+    def construct(self, config):
         # TODO CONFIG base this so that we can plug in version0, version1 etc which will mean a certain combo of
         # user and belief state tracker and action space for agent.
         self.simulated_user = None  # TODO
+        if config.get('env','tracker') == 'focus':
+            self.observation_space = FocusEnvSpace()
+        else:
+            exit(config.get('env','tracker') + 'is unknown tracker')
+
         self.action_space = spaces.Discrete(2)  # TODO define agent summary action set
-        self.observation_space = DialogEnvSpace()
         self.reward_range = (-np.inf,np.inf)
 
     def _reset(self):
@@ -87,9 +102,9 @@ class DialogEnvInterface(gym.Env):
             3. this belief state will be emitted.
         '''
         self.turn = 0
-        self.belief_tracker.restart()
+        self.observation_space.restart()
         self.user_act = self.simulated_user.restart()
-        self.state = self.belief_tracker.track(user_act=self.user_act, agent_act=None)  # TODO sort out exact call for focus tracker
+        self.state = self.observation_space.next_observation(user_act=self.user_act, agent_act=None)
         return self.state  # also called observation  # TODO can also return info dict with sim user goal and agenda
 
     def _step(self, action):
@@ -107,7 +122,7 @@ class DialogEnvInterface(gym.Env):
         self.agent_action = action
         self.user_act = self.simulated_user.respond(agent_act=action)
         self.done = False # if 'bye' then done = True else False or maxturns? TODO
-        self.state = self.belief_tracker.track(user_act=self.user_act, agent_act=action)  # TODO for focus tracker
+        self.state = self.observation_space.next_observation(user_act=self.user_act, agent_act=action)
         # calculate reward
         self.reward = -1  # TODO
         # info ?
