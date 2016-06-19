@@ -29,8 +29,9 @@ def do_rollout(agent, env, num_steps, render=False):
 
     for t in range(num_steps):
         a = agent.act(ob, reward, done)
+        if render: env.render()     # here to capture env then agent utterances
         (ob, reward, done, _info) = env.step(a)
         total_rew += reward
-        if render and t%3==0: env.render()
+
         if done: break
     return total_rew, t+1
